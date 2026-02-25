@@ -39,7 +39,7 @@ A sleek, modern invoice generator built with React. Edit invoices directly on th
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/YourStoreMatters/invoice-generator.git
+git clone https://github.com/Taruunn/invoice-generator.git
 cd invoice-generator
 npm install
 ```

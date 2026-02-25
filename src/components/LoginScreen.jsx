@@ -57,14 +57,10 @@ export default function LoginScreen({ onLogin }) {
                 textAlign: 'center',
             }}>
                 {/* Brand */}
-                <div style={{
-                    width: 48, height: 48, borderRadius: 12,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    margin: '0 auto 20px',
-                }}>
-                    <img src="/logo.svg" alt="ProInvoice" style={{ width: '100%', height: '100%' }} />
+                <div style={{ marginBottom: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <img src="/ysm-logo.png" alt="YourStoreMatters" style={{ height: 32, marginBottom: 16, objectFit: 'contain' }} />
+                    <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111', letterSpacing: '-0.01em', margin: 0 }}>Invoice Generator</h1>
                 </div>
-                <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111', marginBottom: 4, letterSpacing: '-0.02em' }}>ProInvoice</h1>
                 <p style={{ fontSize: 13, color: '#9ca3af', marginBottom: 32 }}>Sign in to access your invoices</p>
 
                 {/* Error */}

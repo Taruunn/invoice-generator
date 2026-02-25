@@ -30,11 +30,11 @@ export default function Toolbar({
         <header className="toolbar no-print">
             <div className="toolbar-left">
                 {/* Brand */}
-                <div className="toolbar-brand">
-                    <img src="/logo.svg" alt="ProInvoice Logo" style={{ width: 20, height: 20, borderRadius: 4 }} />
-                    <span>ProInvoice</span>
+                <div className="toolbar-brand" style={{ gap: 10 }}>
+                    <img src="/ysm-logo.png" alt="YourStoreMatters" style={{ height: 18, objectFit: 'contain' }} />
+                    <div style={{ width: 1, height: 16, background: '#e5e7eb' }} />
+                    <span style={{ fontSize: 14, fontWeight: 600, color: '#4b5563' }}>Invoice Generator</span>
                 </div>
-
                 <div className="toolbar-divider" />
 
                 {/* Format Buttons */}

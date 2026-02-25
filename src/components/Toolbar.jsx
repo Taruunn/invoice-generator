@@ -31,9 +31,7 @@ export default function Toolbar({
             <div className="toolbar-left">
                 {/* Brand */}
                 <div className="toolbar-brand">
-                    <div className="toolbar-brand-icon">
-                        <FileText size={16} />
-                    </div>
+                    <img src="/logo.svg" alt="ProInvoice Logo" style={{ width: 20, height: 20, borderRadius: 4 }} />
                     <span>ProInvoice</span>
                 </div>
 

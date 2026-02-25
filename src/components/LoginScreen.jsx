@@ -58,11 +58,11 @@ export default function LoginScreen({ onLogin }) {
             }}>
                 {/* Brand */}
                 <div style={{
-                    width: 48, height: 48, background: '#4f46e5', borderRadius: 12,
+                    width: 48, height: 48, borderRadius: 12,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    margin: '0 auto 20px', color: '#fff',
+                    margin: '0 auto 20px',
                 }}>
-                    <FileText size={22} />
+                    <img src="/logo.svg" alt="ProInvoice" style={{ width: '100%', height: '100%' }} />
                 </div>
                 <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111', marginBottom: 4, letterSpacing: '-0.02em' }}>ProInvoice</h1>
                 <p style={{ fontSize: 13, color: '#9ca3af', marginBottom: 32 }}>Sign in to access your invoices</p>

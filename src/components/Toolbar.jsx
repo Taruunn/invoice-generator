@@ -14,6 +14,7 @@ export default function Toolbar({
     onPrint,
     onDownloadPDF,
     isGeneratingPdf,
+    onEmailClick,
     onSave,
     isSaving,
     saveStatus,

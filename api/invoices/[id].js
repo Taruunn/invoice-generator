@@ -42,7 +42,11 @@ export default async function handler(req, res) {
 
     // PUT — update invoice
     if (req.method === 'PUT') {
-        const { name, data: invoiceData, settings } = req.body || {};
+        let body = req.body;
+        if (typeof body === 'string') {
+            try { body = JSON.parse(body); } catch (e) { /* ignore */ }
+        }
+        const { name, data: invoiceData, settings } = body || {};
         const { error } = await supabase
             .from('invoices')
             .update({

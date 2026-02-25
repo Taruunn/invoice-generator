@@ -22,6 +22,7 @@ export default function Toolbar({
     onNew,
     onLogout,
     currentInvoiceId,
+    isDirty
 }) {
     const execCmd = (cmd) => {
         document.execCommand(cmd, false, null);
@@ -36,6 +37,12 @@ export default function Toolbar({
                     <div style={{ width: 1, height: 16, background: '#e5e7eb' }} />
                     <span style={{ fontSize: 14, fontWeight: 600, color: '#4b5563' }}>Invoice Generator</span>
                 </div>
+                {isDirty && (
+                    <div className="dirty-indicator" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#f59e0b', background: '#fffbeb', padding: '4px 10px', borderRadius: 20, border: '1px solid #fef3c7', fontWeight: 600, marginLeft: 16 }}>
+                        <div style={{ width: 6, height: 6, background: '#f59e0b', borderRadius: '50%' }}></div>
+                        Unsaved changes
+                    </div>
+                )}
                 <div className="toolbar-divider" />
 
                 {/* Format Buttons */}

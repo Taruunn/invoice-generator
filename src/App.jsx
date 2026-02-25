@@ -145,6 +145,7 @@ export default function App() {
 
     const [currentInvoiceId, setCurrentInvoiceId] = useState(null);
     const [currentInvoiceName, setCurrentInvoiceName] = useState('');
+    const [isDirty, setIsDirty] = useState(false);
 
     // --- Settings ---
     const [settings, setSettings] = useState({
@@ -192,13 +193,23 @@ export default function App() {
         [data.currency]
     );
 
+    // --- Track Changes (Dirty State) ---
+    useEffect(() => {
+        setIsDirty(true);
+    }, [data]);
+
     const updateSettings = useCallback((updates) => {
         setSettings((prev) => ({ ...prev, ...updates }));
+        setIsDirty(true);
     }, []);
 
     // --- Save Invoice ---
     const handleSaveClick = () => {
-        setIsSaveModalOpen(true);
+        if (currentInvoiceId) {
+            saveInvoice(currentInvoiceName);
+        } else {
+            setIsSaveModalOpen(true);
+        }
     };
 
     const saveInvoice = async (name) => {
@@ -215,6 +226,7 @@ export default function App() {
                     setSaveStatus('Saved!');
                     setCurrentInvoiceName(name);
                     setIsSaveModalOpen(false);
+                    setIsDirty(false);
                     // Refresh list if it's currently loaded
                     if (invoiceList.length > 0) loadInvoiceList();
                 } else setSaveStatus('Error saving');
@@ -230,6 +242,7 @@ export default function App() {
                     setCurrentInvoiceName(name);
                     setSaveStatus('Saved!');
                     setIsSaveModalOpen(false);
+                    setIsDirty(false);
                 } else {
                     setSaveStatus('Error saving');
                 }
@@ -269,6 +282,7 @@ export default function App() {
                 setSettings(invoice.settings || { template: 'template1', font: 'font-inter', color: '#0f172a' });
                 setCurrentInvoiceId(id);
                 setCurrentInvoiceName(nameStr || invoice.name || '');
+                setIsDirty(false);
                 setShowInvoiceList(false);
             }
         } catch (err) {
@@ -295,6 +309,7 @@ export default function App() {
         setSettings({ template: 'template1', font: 'font-inter', color: '#0f172a' });
         setCurrentInvoiceId(null);
         setCurrentInvoiceName('');
+        setIsDirty(false);
     };
 
     // --- Print ---
@@ -478,6 +493,7 @@ export default function App() {
                 onSave={handleSaveClick}
                 isSaving={isSaving}
                 saveStatus={saveStatus}
+                isDirty={isDirty}
                 onLoad={loadInvoiceList}
                 onNew={newInvoice}
                 onLogout={handleLogout}

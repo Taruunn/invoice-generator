@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 // Validate auth token (same as invoices route)
 function verifyToken(req) {
@@ -11,11 +11,9 @@ function verifyToken(req) {
         if (!payloadBase64 || !signature) return false;
 
         const APP_SECRET = process.env.APP_SECRET;
-        const payload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+        if (!APP_SECRET) return false;
 
-        // Simplistic check on timestamp from payload structure "username:timestamp"
-        const [username, timestamp] = payload.split(':');
-        if (!username || !timestamp) return false;
+        const payload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
 
         // Verify signature
         const expectedSignature = crypto.createHmac('sha256', APP_SECRET).update(payload).digest('hex');
@@ -40,14 +38,18 @@ export default async function handler(req, res) {
     // 2. Validate Env
     const RESEND_API_KEY = process.env.RESEND_API_KEY;
     if (!RESEND_API_KEY) {
+        console.error('RESEND_API_KEY is missing');
         return res.status(500).json({ error: 'Server configuration error (missing RESEND_API_KEY)' });
     }
 
     // 3. Extract Body
-    const { toEmail, subject, message, pdfBase64 } = req.body;
+    const { toEmail, subject, message, pdfBase64 } = req.body || {};
     if (!toEmail || !subject || !pdfBase64) {
         return res.status(400).json({ error: 'Missing required fields (toEmail, subject, pdfBase64)' });
     }
+
+    // Process multiple emails if provided
+    const recipients = toEmail.split(',').map(e => e.trim()).filter(e => e.length > 0);
 
     try {
         // 4. Send Email via Resend HTTP API
@@ -59,7 +61,7 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 from: 'Invoice Generator <onboarding@resend.dev>', // Free tier Resend test domain
-                to: [toEmail],
+                to: recipients,
                 subject: subject,
                 text: message || 'Please find your invoice attached.',
                 attachments: [
@@ -71,13 +73,13 @@ export default async function handler(req, res) {
             })
         });
 
+        const data = await response.json();
+
         if (response.ok) {
-            const data = await response.json();
             return res.status(200).json({ success: true, id: data.id });
         } else {
-            const errorData = await response.json();
-            console.error('Resend API Error:', errorData);
-            return res.status(response.status).json({ error: errorData.message || 'Failed to send email via Resend' });
+            console.error('Resend API Error:', data);
+            return res.status(response.status).json({ error: data.message || 'Failed to send email via Resend' });
         }
     } catch (err) {
         console.error('Email send exception:', err);

@@ -26,13 +26,13 @@ export default function EmailModal({ isOpen, onClose, onSend, isSending }) {
                     <form id="email-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
                         <div className="form-group" style={{ marginBottom: 0 }}>
-                            <label>To (Email Address)</label>
+                            <label>To (Email Addresses, separated by commas)</label>
                             <input
-                                type="email"
+                                type="text"
                                 required
                                 value={toEmail}
                                 onChange={(e) => setToEmail(e.target.value)}
-                                placeholder="client@example.com"
+                                placeholder="client1@example.com, client2@example.com"
                             />
                         </div>
 

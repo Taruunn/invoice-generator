@@ -2,3 +2,5 @@
 data.db
 node_modules
 dist
+.vercel
+.env*.local

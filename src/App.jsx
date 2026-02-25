@@ -7,6 +7,7 @@ import Toolbar from './components/Toolbar.jsx';
 import DesignPanel from './components/DesignPanel.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import EmailModal from './components/EmailModal.jsx';
+import SaveModal from './components/SaveModal.jsx';
 import Template1 from './templates/Template1.jsx';
 import Template2 from './templates/Template2.jsx';
 
@@ -139,7 +140,11 @@ export default function App() {
     const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
     const [isSendingEmail, setIsSendingEmail] = useState(false);
 
+    // --- Save State ---
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+
     const [currentInvoiceId, setCurrentInvoiceId] = useState(null);
+    const [currentInvoiceName, setCurrentInvoiceName] = useState('');
 
     // --- Settings ---
     const [settings, setSettings] = useState({
@@ -192,19 +197,27 @@ export default function App() {
     }, []);
 
     // --- Save Invoice ---
-    const saveInvoice = async () => {
+    const handleSaveClick = () => {
+        setIsSaveModalOpen(true);
+    };
+
+    const saveInvoice = async (name) => {
         setIsSaving(true);
         setSaveStatus('');
         try {
-            const name = `Invoice #${data.invoiceNo || 'draft'}`;
             if (currentInvoiceId) {
                 // Update existing
                 const res = await apiCall(`/api/invoices/${currentInvoiceId}`, {
                     method: 'PUT',
                     body: JSON.stringify({ name, data, settings }),
                 });
-                if (res.ok) setSaveStatus('Saved!');
-                else setSaveStatus('Error saving');
+                if (res.ok) {
+                    setSaveStatus('Saved!');
+                    setCurrentInvoiceName(name);
+                    setIsSaveModalOpen(false);
+                    // Refresh list if it's currently loaded
+                    if (invoiceList.length > 0) loadInvoiceList();
+                } else setSaveStatus('Error saving');
             } else {
                 // Create new
                 const res = await apiCall('/api/invoices', {
@@ -214,7 +227,9 @@ export default function App() {
                 if (res.ok) {
                     const result = await res.json();
                     setCurrentInvoiceId(result.id);
+                    setCurrentInvoiceName(name);
                     setSaveStatus('Saved!');
+                    setIsSaveModalOpen(false);
                 } else {
                     setSaveStatus('Error saving');
                 }
@@ -245,7 +260,7 @@ export default function App() {
     };
 
     // --- Load Single Invoice ---
-    const loadInvoice = async (id) => {
+    const loadInvoice = async (id, nameStr) => {
         try {
             const res = await apiCall(`/api/invoices/${id}`);
             if (res.ok) {
@@ -253,6 +268,7 @@ export default function App() {
                 setData(invoice.data);
                 setSettings(invoice.settings || { template: 'template1', font: 'font-inter', color: '#0f172a' });
                 setCurrentInvoiceId(id);
+                setCurrentInvoiceName(nameStr || invoice.name || '');
                 setShowInvoiceList(false);
             }
         } catch (err) {
@@ -278,6 +294,7 @@ export default function App() {
         setData({ ...DEFAULT_DATA, invoiceNo: String(Date.now()).slice(-4) });
         setSettings({ template: 'template1', font: 'font-inter', color: '#0f172a' });
         setCurrentInvoiceId(null);
+        setCurrentInvoiceName('');
     };
 
     // --- Print ---
@@ -458,7 +475,7 @@ export default function App() {
                 onDownloadPDF={downloadPDF}
                 isGeneratingPdf={isGeneratingPdf}
                 onEmailClick={handleEmailClick}
-                onSave={saveInvoice}
+                onSave={handleSaveClick}
                 isSaving={isSaving}
                 saveStatus={saveStatus}
                 onLoad={loadInvoiceList}
@@ -649,7 +666,7 @@ export default function App() {
                                             background:
                                                 currentInvoiceId === inv.id ? '#eef2ff' : '#fff',
                                         }}
-                                        onClick={() => loadInvoice(inv.id)}
+                                        onClick={() => loadInvoice(inv.id, inv.name)}
                                         onMouseEnter={(e) =>
                                             (e.currentTarget.style.borderColor = '#c7d2fe')
                                         }
@@ -711,6 +728,15 @@ export default function App() {
                 onClose={() => !isSendingEmail && setIsEmailModalOpen(false)}
                 onSend={handleEmailSend}
                 isSending={isSendingEmail}
+            />
+
+            {/* Save Modal */}
+            <SaveModal
+                isOpen={isSaveModalOpen}
+                onClose={() => !isSaving && setIsSaveModalOpen(false)}
+                onSave={saveInvoice}
+                isSaving={isSaving}
+                defaultName={currentInvoiceName || `Invoice #${data.invoiceNo || 'draft'}`}
             />
         </div>
     );

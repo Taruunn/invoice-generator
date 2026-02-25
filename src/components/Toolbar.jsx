@@ -2,7 +2,7 @@ import React from 'react';
 import {
     FileText, Bold, Italic, Underline,
     Printer, Download, Loader2, Paintbrush,
-    Save, FolderOpen, FilePlus, LogOut, Check,
+    Save, FolderOpen, FilePlus, LogOut, Check, Mail,
 } from 'lucide-react';
 
 /**
@@ -42,21 +42,21 @@ export default function Toolbar({
                     <button
                         className="toolbar-format-btn"
                         onMouseDown={(e) => { e.preventDefault(); execCmd('bold'); }}
-                        title="Bold"
+                        data-tooltip="Bold"
                     >
                         <Bold size={15} />
                     </button>
                     <button
                         className="toolbar-format-btn"
                         onMouseDown={(e) => { e.preventDefault(); execCmd('italic'); }}
-                        title="Italic"
+                        data-tooltip="Italic"
                     >
                         <Italic size={15} />
                     </button>
                     <button
                         className="toolbar-format-btn"
                         onMouseDown={(e) => { e.preventDefault(); execCmd('underline'); }}
-                        title="Underline"
+                        data-tooltip="Underline"
                     >
                         <Underline size={15} />
                     </button>
@@ -65,16 +65,16 @@ export default function Toolbar({
                 <div className="toolbar-divider" />
 
                 {/* File Actions */}
-                <button className="btn-icon" onClick={onNew} title="New invoice">
+                <button className="btn-icon" onClick={onNew} data-tooltip="New invoice">
                     <FilePlus size={16} />
                 </button>
-                <button className="btn-icon" onClick={onLoad} title="Open saved invoices">
+                <button className="btn-icon" onClick={onLoad} data-tooltip="Open saved invoices">
                     <FolderOpen size={16} />
                 </button>
                 <button
                     className="btn-icon"
                     onClick={onSave}
-                    title={currentInvoiceId ? 'Update invoice' : 'Save invoice'}
+                    data-tooltip={currentInvoiceId ? 'Update invoice' : 'Save invoice'}
                     style={isSaving ? { opacity: 0.6, pointerEvents: 'none' } : {}}
                 >
                     {isSaving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
@@ -94,7 +94,7 @@ export default function Toolbar({
                 <button
                     className={`btn-icon ${isDesignPanelOpen ? 'active' : ''}`}
                     onClick={onToggleDesignPanel}
-                    title="Design settings"
+                    data-tooltip="Design settings"
                 >
                     <Paintbrush size={16} />
                 </button>
@@ -102,9 +102,15 @@ export default function Toolbar({
                 <div className="toolbar-divider" />
 
                 {/* Print */}
-                <button className="btn btn-ghost" onClick={onPrint}>
+                <button className="btn btn-ghost" onClick={onPrint} data-tooltip="Print invoice">
                     <Printer size={15} />
                     Print
+                </button>
+
+                {/* Send Email */}
+                <button className="btn btn-ghost" onClick={isGeneratingPdf ? undefined : onEmailClick} data-tooltip="Send via Email">
+                    <Mail size={15} />
+                    Email
                 </button>
 
                 {/* Download PDF */}
@@ -124,7 +130,7 @@ export default function Toolbar({
                 <div className="toolbar-divider" />
 
                 {/* Logout */}
-                <button className="btn-icon" onClick={onLogout} title="Sign out">
+                <button className="btn-icon" onClick={onLogout} data-tooltip="Sign out">
                     <LogOut size={16} />
                 </button>
             </div>

@@ -6,6 +6,7 @@ import {
 import Toolbar from './components/Toolbar.jsx';
 import DesignPanel from './components/DesignPanel.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
+import EmailModal from './components/EmailModal.jsx';
 import Template1 from './templates/Template1.jsx';
 import Template2 from './templates/Template2.jsx';
 
@@ -133,6 +134,11 @@ export default function App() {
     const [showInvoiceList, setShowInvoiceList] = useState(false);
     const [invoiceList, setInvoiceList] = useState([]);
     const [loadingList, setLoadingList] = useState(false);
+
+    // --- Email State ---
+    const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
+
     const [currentInvoiceId, setCurrentInvoiceId] = useState(null);
 
     // --- Settings ---
@@ -327,6 +333,88 @@ export default function App() {
         }
     }, [data.invoiceNo]);
 
+    // --- Email PDF (Base64) ---
+    const handleEmailClick = () => {
+        setIsEmailModalOpen(true);
+    };
+
+    const handleEmailSend = async (emailData) => {
+        setIsSendingEmail(true);
+        const element = document.getElementById('invoice-preview');
+
+        const sendRequest = async (base64String) => {
+            try {
+                // Strip the exact prefix html2pdf adds (data:application/pdf;filename=generated.pdf;base64,)
+                // or safely extract after base64,
+                const base64Data = base64String.split('base64,')[1] || base64String;
+
+                const res = await apiCall('/api/email', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        toEmail: emailData.toEmail,
+                        subject: emailData.subject,
+                        message: emailData.message,
+                        pdfBase64: base64Data,
+                    }),
+                });
+
+                if (res.ok) {
+                    setIsEmailModalOpen(false);
+                    alert('Email sent successfully!');
+                } else {
+                    const errStr = await res.text();
+                    alert(`Failed to send email: ${errStr}`);
+                }
+            } catch (err) {
+                console.error('Email send failed', err);
+                alert('An error occurred while sending the email.');
+            } finally {
+                setIsSendingEmail(false);
+            }
+        };
+
+        const generateAndSend = () => {
+            const opt = {
+                margin: 0,
+                filename: `Invoice_${data.invoiceNo || 'draft'}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    letterRendering: true,
+                    height: element.scrollHeight,
+                    windowHeight: element.scrollHeight,
+                },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+            };
+
+            window.html2pdf()
+                .set(opt)
+                .from(element)
+                .outputPdf('datauristring')
+                .then(sendRequest)
+                .catch((err) => {
+                    console.error('Failed to generate PDF for email', err);
+                    alert('Failed to generate PDF');
+                    setIsSendingEmail(false);
+                });
+        };
+
+        if (window.html2pdf) {
+            generateAndSend();
+        } else {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+            script.onload = generateAndSend;
+            script.onerror = () => {
+                alert('Failed to load PDF library');
+                setIsSendingEmail(false);
+            };
+            document.head.appendChild(script);
+        }
+    };
+
     // --- Calculations ---
     const subtotal = data.items.reduce(
         (sum, item) => sum + item.qty * item.rate,
@@ -369,6 +457,7 @@ export default function App() {
                 onPrint={printInvoice}
                 onDownloadPDF={downloadPDF}
                 isGeneratingPdf={isGeneratingPdf}
+                onEmailClick={handleEmailClick}
                 onSave={saveInvoice}
                 isSaving={isSaving}
                 saveStatus={saveStatus}
@@ -615,6 +704,14 @@ export default function App() {
                     </div>
                 </>
             )}
+
+            {/* Email Modal */}
+            <EmailModal
+                isOpen={isEmailModalOpen}
+                onClose={() => !isSendingEmail && setIsEmailModalOpen(false)}
+                onSend={handleEmailSend}
+                isSending={isSendingEmail}
+            />
         </div>
     );
 }

@@ -74,9 +74,15 @@ APP_PASSWORD=your_password
 APP_SECRET=any-random-secret-string
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
+RESEND_API_KEY=re_your_resend_api_key_here
 ```
 
-### 4. Run Locally
+### 4. Resend (Free Email Sending)
+1. Create a free account at [resend.com](https://resend.com)
+2. Generate an API Key
+3. Add it as `RESEND_API_KEY` to your Vercel Environment Variables.
+
+### 5. Run Locally
 
 ```bash
 npm install -g vercel   # if not already installed

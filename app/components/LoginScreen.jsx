@@ -1,3 +1,4 @@
+'use client';
 import React, { useState } from 'react';
 import { FileText, Loader2, Lock } from 'lucide-react';
 

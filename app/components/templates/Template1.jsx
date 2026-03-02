@@ -1,5 +1,8 @@
+'use client';
+
 import React from 'react';
-import EditableText from '../components/EditableText.jsx';
+import EditableText from '../EditableText';
+import DateInput from '../DateInput';
 
 /**
  * Template 1 — Classic Minimalist
@@ -43,18 +46,18 @@ export default function Template1({ data, settings, formatCurrency, onUpdate, on
                         tag="h2"
                         style={{ fontSize: 36, fontWeight: 900, letterSpacing: '0.1em', color: settings.color, opacity: 0.15, marginBottom: 24 }}
                     />
-                    <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+                    <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <span style={{ fontWeight: 600 }}>{data.invoiceNoLabel}</span>
                             <EditableText value={data.invoiceNo} onChange={(v) => onUpdate('invoiceNo', v)} />
                         </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', minHeight: 28 }}>
                             <span style={{ fontWeight: 600 }}>{data.dateLabel}</span>
-                            <EditableText value={data.invoiceDate} onChange={(v) => onUpdate('invoiceDate', v)} />
+                            <DateInput value={data.invoiceDate} onChange={(v) => onUpdate('invoiceDate', v)} style={{ minHeight: 28 }} />
                         </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', minHeight: 28 }}>
                             <span style={{ fontWeight: 600 }}>{data.dueDateLabel}</span>
-                            <EditableText value={data.dueDate} onChange={(v) => onUpdate('dueDate', v)} />
+                            <DateInput value={data.dueDate} onChange={(v) => onUpdate('dueDate', v)} style={{ minHeight: 28 }} />
                         </div>
                     </div>
                 </div>

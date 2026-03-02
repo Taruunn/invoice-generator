@@ -1,5 +1,8 @@
+'use client';
+
 import React from 'react';
-import EditableText from '../components/EditableText.jsx';
+import EditableText from '../EditableText';
+import DateInput from '../DateInput';
 
 /**
  * Template 2 — Typewriter / Monospace
@@ -58,7 +61,7 @@ export default function Template2({ data, settings, formatCurrency, onUpdate, on
                         <EditableText value={data.invoiceNo} onChange={(v) => onUpdate('invoiceNo', v)} tag="span" style={{ fontFamily: mono }} />
                     </div>
                     <div style={{ fontSize: 12 }}>
-                        <EditableText value={data.invoiceDate} onChange={(v) => onUpdate('invoiceDate', v)} tag="span" style={{ fontFamily: mono }} />
+                        <DateInput value={data.invoiceDate} onChange={(v) => onUpdate('invoiceDate', v)} style={{ fontFamily: mono }} />
                     </div>
                 </div>
                 {/* Right: Billed To */}

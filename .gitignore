@@ -1,6 +1,6 @@
 .env
+.env*.local
 data.db
 node_modules
-dist
+.next
 .vercel
-.env*.local

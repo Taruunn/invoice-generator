@@ -1,11 +1,12 @@
+import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
 const APP_SECRET = process.env.APP_SECRET || 'default-secret';
 
-export default function handler(req, res) {
-    const authHeader = req.headers.authorization;
+export async function GET(request) {
+    const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const token = authHeader.split(' ')[1];
@@ -15,11 +16,11 @@ export default function handler(req, res) {
         const expectedSig = crypto.createHmac('sha256', APP_SECRET).update(payload).digest('hex');
 
         if (signature === expectedSig) {
-            return res.status(200).json({ valid: true });
+            return NextResponse.json({ valid: true });
         }
     } catch (e) {
         // fall through
     }
 
-    return res.status(401).json({ error: 'Invalid token' });
+    return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 }

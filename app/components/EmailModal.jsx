@@ -13,10 +13,13 @@ import { X, Send, Paperclip } from 'lucide-react';
 export default function EmailModal({
     isOpen, onClose, onSend, isSending,
     senderEmail, invoiceSubject, attachmentName, invoiceMonth,
+    initialRecipients,
 }) {
-    const [recipients, setRecipients] = useState(
-        (process.env.NEXT_PUBLIC_RECIPIENTS || '').split(',').filter(Boolean)
-    );
+    const defaultChipList = Array.isArray(initialRecipients) && initialRecipients.length > 0
+        ? initialRecipients
+        : (process.env.NEXT_PUBLIC_RECIPIENTS || '').split(',').map((s) => s.trim()).filter(Boolean);
+
+    const [recipients, setRecipients] = useState(defaultChipList);
     const [inputValue, setInputValue] = useState('');
     const [fromEmail, setFromEmail] = useState('');
     const [subject, setSubject] = useState('');
@@ -26,11 +29,16 @@ export default function EmailModal({
     // Sync dynamic subject when modal opens
     useEffect(() => {
         if (isOpen) {
+            const chip =
+                Array.isArray(initialRecipients) && initialRecipients.length > 0
+                    ? initialRecipients
+                    : (process.env.NEXT_PUBLIC_RECIPIENTS || '').split(',').map((s) => s.trim()).filter(Boolean);
+            setRecipients(chip);
             setSubject(invoiceSubject || '');
             setFromEmail(senderEmail || process.env.NEXT_PUBLIC_SENDER_EMAIL || '');
             setMessage(`Hi there,\n\nPlease find ${invoiceMonth || 'this month\'s'} invoice attached.\n\nThank you`);
         }
-    }, [isOpen, invoiceSubject, senderEmail, invoiceMonth]);
+    }, [isOpen, invoiceSubject, senderEmail, invoiceMonth, initialRecipients]);
 
     if (!isOpen) return null;
 

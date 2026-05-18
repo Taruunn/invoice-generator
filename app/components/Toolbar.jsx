@@ -3,7 +3,7 @@ import React from 'react';
 import {
     Bold, Italic, Underline,
     Printer, Download, Loader2, Paintbrush,
-    Save, LogOut, Check, Mail, ArrowLeft,
+    Save, LogOut, Check, Mail, ArrowLeft, ArrowLeftRight,
 } from 'lucide-react';
 
 /**
@@ -23,6 +23,8 @@ export default function Toolbar({
     isDirty,
     onBack,
     invoiceMonth,
+    workspaceLabel,
+    onSwitchWorkspace,
 }) {
     const execCmd = (cmd) => {
         document.execCommand(cmd, false, null);
@@ -49,6 +51,21 @@ export default function Toolbar({
                             <div style={{ width: 1, height: 16, background: '#e5e7eb' }} />
                             <span style={{ fontSize: 13, fontWeight: 600, color: '#6366f1' }}>
                                 {invoiceMonth} Invoice
+                            </span>
+                        </>
+                    )}
+                    {workspaceLabel && (
+                        <>
+                            <div style={{ width: 1, height: 16, background: '#e5e7eb' }} />
+                            <span style={{
+                                fontSize: 11,
+                                fontWeight: 800,
+                                color: '#4338ca',
+                                background: '#eef2ff',
+                                padding: '4px 10px',
+                                borderRadius: 999,
+                            }}>
+                                {workspaceLabel}
                             </span>
                         </>
                     )}
@@ -127,8 +144,21 @@ export default function Toolbar({
 
                 <div className="toolbar-divider" />
 
+                {typeof onSwitchWorkspace === 'function' && (
+                    <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={onSwitchWorkspace}
+                        data-tooltip="Switch workspace"
+                        style={{ padding: '6px 12px', fontSize: 12 }}
+                    >
+                        <ArrowLeftRight size={15} />
+                        Workspace
+                    </button>
+                )}
+
                 {/* Logout */}
-                <button className="btn-icon" onClick={onLogout} data-tooltip="Sign out">
+                <button type="button" className="btn-icon" onClick={onLogout} data-tooltip="Sign out">
                     <LogOut size={16} />
                 </button>
             </div>

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
     Plus, Trash2, ZoomIn, ZoomOut,
-    Save, ArrowLeft, Loader2,
+    Loader2,
 } from 'lucide-react';
 import Toolbar from './Toolbar';
 import DesignPanel from './DesignPanel';
@@ -13,8 +13,21 @@ import Dashboard from './Dashboard';
 import Toast, { showToast } from './Toast';
 import Template1 from './templates/Template1';
 import Template2 from './templates/Template2';
+import WorkspacePicker from './WorkspacePicker';
+import TarunWorkspaceModal from './TarunWorkspaceModal';
+import PrefillModal from './PrefillModal';
+import {
+    MONTH_NAMES,
+    getInvoiceFilename,
+    buildDefaultDataForWorkspace,
+    mergeInvoicePrefill,
+    resolvePrefillForEditor,
+} from '../../lib/invoice-defaults';
+import { vagmiSequentialInvoiceNo } from '../../lib/vagmi-invoice-index';
 
-// --- Font mapping ---
+const SS_WORKSPACE = 'invoice_workspace';
+const SS_TARUN = 'invoice_tarun_token';
+
 const FONT_MAP = {
     'font-inter': '"Inter", sans-serif',
     'font-roboto': '"Roboto", sans-serif',
@@ -28,101 +41,36 @@ const TEMPLATES = {
     template2: Template2,
 };
 
-// --- API Helper ---
 function apiCall(url, options = {}) {
-    const token = sessionStorage.getItem('auth_token');
+    const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('auth_token') : null;
+    const workspace = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SS_WORKSPACE) : null;
+    const tarunTok = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SS_TARUN) : null;
     return fetch(url, {
         ...options,
         headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(workspace ? { 'X-Workspace': workspace } : {}),
+            ...(workspace === 'tarun' && tarunTok ? { 'X-Tarun-Token': tarunTok } : {}),
             ...options.headers,
         },
     });
 }
 
-// --- Helpers ---
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'];
-
-function toISODate(date) {
-    return date.toISOString().split('T')[0];
-}
-
-function getInvoiceFilename(senderName, invoiceNo) {
-    const cleanName = (senderName || 'Invoice')
-        .replace(/<[^>]*>/g, '')
-        .replace(/\s+/g, '');
-    const paddedNo = String(invoiceNo || 1).padStart(2, '0');
-    return `${cleanName}_INV_${paddedNo}.pdf`;
-}
-
-function buildDefaultData(monthNum) {
-    const year = new Date().getFullYear();
-    const currentMonth = MONTH_NAMES[monthNum - 1];
-
-    // Invoice date = 1st of month, Due = last day of month
-    const invoiceDate = new Date(year, monthNum - 1, 1);
-    const lastDay = new Date(year, monthNum, 0);
-
-    return {
-        senderName: 'Tarun Kumar',
-        tradeName: '(Trade Name: Dorahi)',
-        senderAddress:
-            'Plot No. 06, 219, Gelda Colony, Uttari Sunderwas<br> Udaipur, Rajasthan 313001, India',
-        senderGst: '<b>GST: 08HQAPK7073Q1Z1</b>',
-        senderPan: '<b>PAN:</b> HQAPK7073Q',
-        senderEmail: `<b>EMAIL:</b> ${process.env.NEXT_PUBLIC_SENDER_EMAIL || ''}`,
-
-        billToLabel: 'BILL TO',
-        receiverName: 'GM Commerce Group S.R.L.',
-        receiverAddress: 'Via Garigliano 9/A, 70022 Altamura (BA), Italy',
-        receiverVat: '<b>VAT:</b> IT09143370725',
-
-        invoiceTitle: 'INVOICE',
-        invoiceNoLabel: '#',
-        invoiceNo: String(monthNum),
-        dateLabel: 'Date:',
-        invoiceDate: toISODate(invoiceDate),
-        dueDateLabel: 'Due Date:',
-        dueDate: toISODate(lastDay),
-        currency: '$',
-
-        items: [
-            {
-                id: 1,
-                desc: `Shopify development and technical services<br/><br/><i>Monthly Retainer (${currentMonth} ${year})</i>`,
-                qty: 1,
-                rate: 2300,
-            },
-        ],
-
-        subtotalLabel: 'Subtotal',
-        taxLabel: 'IGST (0%)',
-        taxAmount: 0.0,
-        totalLabel: 'Total',
-
-        notesTitle: 'Payment details',
-        notesContent:
-            '<b>Name:</b> Tarun Kumar<br/><b>A/C:</b> 77016018913<br/><b>Bank Name:</b> Standard Chartered<br/><b>Branch/City:</b> Jodhpur<br/><b>IFSC:</b> SCBL0036097<br/><b>SWIFT:</b> SCBLINBBDEL',
-
-        termsTitle: 'Terms',
-        termsContent:
-            'Export of services, IGST is zero-rated as per LUT (India).<br/>B2B services - place of supply: Italy<br/>LUT Application Reference Number - AD0812250138157 dated 22/12/2025',
-    };
-}
-
 export default function App() {
-    // --- Auth ---
     const [authToken, setAuthToken] = useState(null);
     const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-    // --- View state: 'dashboard' or 'editor' ---
+    const [workspace, setWorkspace] = useState(null);
+    const [tarunModalOpen, setTarunModalOpen] = useState(false);
+    const [masterPrefill, setMasterPrefill] = useState({});
+    const [prefillModalOpen, setPrefillModalOpen] = useState(false);
+    const [isSavingPrefill, setIsSavingPrefill] = useState(false);
+
     const [currentView, setCurrentView] = useState('dashboard');
     const [selectedMonth, setSelectedMonth] = useState(null);
     const [selectedYear] = useState(new Date().getFullYear());
 
-    // Check sessionStorage on mount
     useEffect(() => {
         const token = sessionStorage.getItem('auth_token');
         if (!token) {
@@ -138,7 +86,10 @@ export default function App() {
                     setAuthToken(token);
                 } else {
                     sessionStorage.removeItem('auth_token');
+                    sessionStorage.removeItem(SS_WORKSPACE);
+                    sessionStorage.removeItem(SS_TARUN);
                     setAuthToken(null);
+                    setWorkspace(null);
                 }
             })
             .catch(() => {
@@ -147,20 +98,114 @@ export default function App() {
             .finally(() => setIsCheckingAuth(false));
     }, []);
 
+    useEffect(() => {
+        if (!authToken) return;
+        const ws = sessionStorage.getItem(SS_WORKSPACE);
+        const tt = sessionStorage.getItem(SS_TARUN);
+        if (ws === 'tarun' && !tt) {
+            sessionStorage.removeItem(SS_WORKSPACE);
+            setWorkspace(null);
+            return;
+        }
+        if (ws === 'vagmi' || ws === 'tarun') {
+            setWorkspace(ws);
+        }
+    }, [authToken]);
+
+    const refreshPrefill = useCallback(async () => {
+        try {
+            const res = await apiCall('/api/prefill');
+            if (res.ok) {
+                const j = await res.json();
+                setMasterPrefill(j.data && typeof j.data === 'object' ? j.data : {});
+            }
+        } catch {
+            /* ignore */
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!authToken || !workspace) return;
+        refreshPrefill();
+    }, [authToken, workspace, refreshPrefill]);
+
     const handleLogin = (token) => {
         setAuthToken(token);
+        setWorkspace(null);
     };
 
     const handleLogout = () => {
         sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem(SS_WORKSPACE);
+        sessionStorage.removeItem(SS_TARUN);
         setAuthToken(null);
+        setWorkspace(null);
+        setCurrentView('dashboard');
     };
 
-    // --- Dashboard state ---
+    const handleSelectVagmi = () => {
+        sessionStorage.setItem(SS_WORKSPACE, 'vagmi');
+        sessionStorage.removeItem(SS_TARUN);
+        setWorkspace('vagmi');
+        setCurrentView('dashboard');
+    };
+
+    const handleSelectTarunClick = () => {
+        setTarunModalOpen(true);
+    };
+
+    const handleTarunUnlocked = (tarunToken) => {
+        sessionStorage.setItem(SS_WORKSPACE, 'tarun');
+        sessionStorage.setItem(SS_TARUN, tarunToken);
+        setWorkspace('tarun');
+        setTarunModalOpen(false);
+        setCurrentView('dashboard');
+    };
+
+    const handleSwitchWorkspace = () => {
+        sessionStorage.removeItem(SS_WORKSPACE);
+        sessionStorage.removeItem(SS_TARUN);
+        setWorkspace(null);
+        setCurrentView('dashboard');
+        setMasterPrefill({});
+    };
+
+    const openPrefillEditor = async () => {
+        await refreshPrefill();
+        setPrefillModalOpen(true);
+    };
+
+    const savePrefillPayload = async (obj) => {
+        setIsSavingPrefill(true);
+        try {
+            const res = await apiCall('/api/prefill', {
+                method: 'PUT',
+                body: JSON.stringify({ data: obj }),
+            });
+            if (res.ok) {
+                setMasterPrefill(obj);
+                showToast('Master prefill saved');
+                setPrefillModalOpen(false);
+            } else {
+                let message = 'Could not save prefill';
+                try {
+                    const errBody = await res.json();
+                    if (errBody?.error) message = errBody.error;
+                } catch {
+                    /* ignore */
+                }
+                showToast(message, 'error');
+            }
+        } catch (e) {
+            showToast(e?.message || 'Error saving prefill', 'error');
+        } finally {
+            setIsSavingPrefill(false);
+        }
+    };
+
     const [dashboardInvoices, setDashboardInvoices] = useState([]);
     const [isDashboardLoading, setIsDashboardLoading] = useState(false);
 
-    // Fetch invoices for dashboard
     const fetchDashboardInvoices = useCallback(async () => {
         setIsDashboardLoading(true);
         try {
@@ -176,13 +221,45 @@ export default function App() {
         }
     }, [selectedYear]);
 
+    const handleDeleteInvoice = useCallback(
+        async (invoice) => {
+            const m = Number(invoice.month);
+            const label = Number.isFinite(m) ? MONTH_NAMES[m - 1] : `Month ${invoice.month}`;
+            if (
+                !window.confirm(
+                    `Remove the saved invoice for ${label} ${selectedYear}? You can create a fresh one afterward from master prefill.`
+                )
+            ) {
+                return;
+            }
+            try {
+                const res = await apiCall(`/api/invoices/${invoice.id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showToast('Invoice deleted');
+                    fetchDashboardInvoices();
+                } else {
+                    let message = 'Could not delete invoice';
+                    try {
+                        const errBody = await res.json();
+                        if (errBody?.error) message = errBody.error;
+                    } catch {
+                        /* ignore */
+                    }
+                    showToast(message, 'error');
+                }
+            } catch (e) {
+                showToast(e?.message || 'Delete failed', 'error');
+            }
+        },
+        [fetchDashboardInvoices, selectedYear]
+    );
+
     useEffect(() => {
-        if (authToken && currentView === 'dashboard') {
+        if (authToken && workspace && currentView === 'dashboard') {
             fetchDashboardInvoices();
         }
-    }, [authToken, currentView, fetchDashboardInvoices]);
+    }, [authToken, workspace, currentView, fetchDashboardInvoices]);
 
-    // --- UI State ---
     const [isDesignPanelOpen, setIsDesignPanelOpen] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [zoom, setZoom] = useState(100);
@@ -190,24 +267,21 @@ export default function App() {
     const [saveStatus, setSaveStatus] = useState('');
     const [isDirty, setIsDirty] = useState(false);
 
-    // Email modal state
     const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
     const [isSendingEmail, setIsSendingEmail] = useState(false);
 
-    // Current invoice tracking
     const [currentInvoiceId, setCurrentInvoiceId] = useState(null);
 
-    // --- Settings ---
     const [settings, setSettings] = useState({
         template: 'template1',
         font: 'font-inter',
         color: '#0f172a',
     });
 
-    // --- Invoice Data ---
-    const [data, setData] = useState(buildDefaultData(new Date().getMonth() + 1));
+    const [data, setData] = useState(() =>
+        buildDefaultDataForWorkspace('tarun', new Date().getMonth() + 1)
+    );
 
-    // --- Actions ---
     const handleUpdate = useCallback((field, value) => {
         setData((prev) => ({ ...prev, [field]: value }));
     }, []);
@@ -252,18 +326,32 @@ export default function App() {
         setIsDirty(true);
     }, []);
 
-    // --- Dashboard Actions ---
-    const handleCreateInvoice = (monthNum) => {
-        setSelectedMonth(monthNum);
-        setData(buildDefaultData(monthNum));
-        setSettings({ template: 'template1', font: 'font-inter', color: '#0f172a' });
-        setCurrentInvoiceId(null);
-        setIsDirty(false);
-        setCurrentView('editor');
-    };
+    const handleCreateInvoice = useCallback(
+        (monthNum) => {
+            if (!workspace) return;
+            const base = buildDefaultDataForWorkspace(workspace, monthNum);
+            let merged = mergeInvoicePrefill(base, masterPrefill);
+            if (workspace === 'vagmi') {
+                const savedMonths = dashboardInvoices
+                    .map((inv) => Number(inv.month))
+                    .filter((m) => Number.isFinite(m) && m >= 1 && m <= 12);
+                merged = {
+                    ...merged,
+                    invoiceNo: vagmiSequentialInvoiceNo(monthNum, savedMonths),
+                };
+            }
+            setSelectedMonth(monthNum);
+            setData(merged);
+            setSettings({ template: 'template1', font: 'font-inter', color: '#0f172a' });
+            setCurrentInvoiceId(null);
+            setIsDirty(false);
+            setCurrentView('editor');
+        },
+        [workspace, masterPrefill, dashboardInvoices]
+    );
 
     const handleViewInvoice = async (invoice) => {
-        setSelectedMonth(invoice.month);
+        setSelectedMonth(Number(invoice.month));
         try {
             const res = await apiCall(`/api/invoices/${invoice.id}`);
             if (res.ok) {
@@ -283,9 +371,16 @@ export default function App() {
         setCurrentView('dashboard');
     };
 
-    // --- Save Invoice (one-click upsert) ---
     const saveInvoice = async () => {
-        if (!selectedMonth || !selectedYear) return;
+        const month = Number(selectedMonth);
+        const year = Number(selectedYear);
+        if (!Number.isFinite(month) || month < 1 || month > 12 || !Number.isFinite(year)) {
+            showToast(
+                'Cannot save: no month/year for this invoice. Go back and open or create a month slot.',
+                'error'
+            );
+            return;
+        }
         setIsSaving(true);
         setSaveStatus('');
         try {
@@ -293,8 +388,8 @@ export default function App() {
             const res = await apiCall('/api/invoices', {
                 method: 'POST',
                 body: JSON.stringify({
-                    month: selectedMonth,
-                    year: selectedYear,
+                    month,
+                    year,
                     name,
                     data,
                     settings,
@@ -307,31 +402,34 @@ export default function App() {
                 showToast('Invoice saved!');
                 setCurrentView('dashboard');
             } else {
-                showToast('Error saving invoice', 'error');
+                let message = `Save failed (${res.status})`;
+                try {
+                    const errBody = await res.json();
+                    if (errBody?.error) message = errBody.error;
+                } catch {
+                    /* ignore */
+                }
+                showToast(message, 'error');
             }
         } catch (err) {
-            showToast('Error saving invoice', 'error');
+            showToast(err?.message || 'Error saving invoice', 'error');
         } finally {
             setIsSaving(false);
         }
     };
 
-    // --- Computed ---
     const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.rate, 0);
     const total = subtotal + (parseFloat(data.taxAmount) || 0);
     const TemplateComponent = TEMPLATES[settings.template] || Template1;
 
-    // --- Zoom ---
     const handleZoomIn = () => setZoom((z) => Math.min(z + 10, 200));
     const handleZoomOut = () => setZoom((z) => Math.max(z - 10, 50));
     const handleZoomReset = () => setZoom(100);
 
-    // --- Print ---
     const printInvoice = useCallback(() => {
         window.print();
     }, []);
 
-    // --- Download PDF ---
     const downloadPDF = useCallback(() => {
         setIsGeneratingPdf(true);
         const element = document.getElementById('invoice-preview');
@@ -380,7 +478,6 @@ export default function App() {
         }
     }, [data.invoiceNo, data.senderName]);
 
-    // --- Email PDF ---
     const handleEmailClick = () => {
         setIsEmailModalOpen(true);
     };
@@ -408,8 +505,8 @@ export default function App() {
                     setIsEmailModalOpen(false);
                     showToast('Email sent successfully!');
                 } else {
-                    const errStr = await res.text();
-                    showToast(`Failed to send email`, 'error');
+                    await res.text();
+                    showToast('Failed to send email', 'error');
                 }
             } catch (err) {
                 console.error('Email send failed', err);
@@ -462,7 +559,23 @@ export default function App() {
         }
     };
 
-    // --- Loading screen ---
+    const workspaceLabel = workspace === 'vagmi' ? 'Vagmi' : workspace === 'tarun' ? 'Tarun' : '';
+    const senderEmailForUi =
+        workspace === 'vagmi'
+            ? process.env.NEXT_PUBLIC_SENDER_EMAIL_VAGMI || ''
+            : process.env.NEXT_PUBLIC_SENDER_EMAIL || '';
+    const emailRecipientSeed =
+        workspace === 'vagmi'
+            ? process.env.NEXT_PUBLIC_RECIPIENTS_VAGMI ||
+              process.env.NEXT_PUBLIC_RECIPIENTS ||
+              ''
+            : process.env.NEXT_PUBLIC_RECIPIENTS || '';
+
+    const prefillModalInitial = useMemo(() => {
+        if (workspace !== 'vagmi' && workspace !== 'tarun') return {};
+        return resolvePrefillForEditor(workspace, masterPrefill);
+    }, [workspace, masterPrefill]);
+
     if (isCheckingAuth) {
         return (
             <div style={{
@@ -478,7 +591,25 @@ export default function App() {
         return <LoginScreen onLogin={handleLogin} />;
     }
 
-    // --- DASHBOARD VIEW ---
+    if (!workspace) {
+        return (
+            <>
+                <WorkspacePicker
+                    onSelectVagmi={handleSelectVagmi}
+                    onSelectTarun={handleSelectTarunClick}
+                    onLogout={handleLogout}
+                />
+                <TarunWorkspaceModal
+                    isOpen={tarunModalOpen}
+                    masterToken={authToken}
+                    onClose={() => setTarunModalOpen(false)}
+                    onSuccess={handleTarunUnlocked}
+                />
+                <Toast />
+            </>
+        );
+    }
+
     if (currentView === 'dashboard') {
         return (
             <>
@@ -486,19 +617,29 @@ export default function App() {
                     invoices={dashboardInvoices}
                     onCreateInvoice={handleCreateInvoice}
                     onViewInvoice={handleViewInvoice}
+                    onDeleteInvoice={handleDeleteInvoice}
                     isLoading={isDashboardLoading}
+                    workspaceLabel={workspaceLabel}
+                    onMasterPrefill={openPrefillEditor}
+                    onSwitchWorkspace={handleSwitchWorkspace}
+                />
+                <PrefillModal
+                    isOpen={prefillModalOpen}
+                    onClose={() => !isSavingPrefill && setPrefillModalOpen(false)}
+                    workspaceLabel={workspaceLabel}
+                    initialJson={prefillModalInitial}
+                    onSave={savePrefillPayload}
+                    isSaving={isSavingPrefill}
                 />
                 <Toast />
             </>
         );
     }
 
-    // --- EDITOR VIEW ---
     const invoiceMonthName = selectedMonth ? MONTH_NAMES[selectedMonth - 1] : '';
 
     return (
         <div className="app-layout">
-            {/* Toolbar — with back button and save */}
             <Toolbar
                 settings={settings}
                 onToggleDesignPanel={() => setIsDesignPanelOpen((v) => !v)}
@@ -513,6 +654,8 @@ export default function App() {
                 onBack={handleBackToDashboard}
                 isSaving={isSaving}
                 invoiceMonth={invoiceMonthName}
+                workspaceLabel={workspaceLabel}
+                onSwitchWorkspace={handleSwitchWorkspace}
             />
 
             <div className="canvas-area">
@@ -539,7 +682,6 @@ export default function App() {
                         />
                     </div>
 
-                    {/* Add/Remove controls */}
                     <div
                         className="no-print"
                         style={{
@@ -551,12 +693,13 @@ export default function App() {
                             transformOrigin: 'top center',
                         }}
                     >
-                        <button className="add-item-row" onClick={addItem}>
+                        <button className="add-item-row" type="button" onClick={addItem}>
                             <Plus size={14} />
                             Add Line Item
                         </button>
                         {data.items.length > 1 && (
                             <button
+                                type="button"
                                 className="add-item-row"
                                 style={{ maxWidth: 180, borderColor: '#fca5a5', color: '#ef4444' }}
                                 onClick={() => removeItem(data.items[data.items.length - 1].id)}
@@ -569,12 +712,12 @@ export default function App() {
                 </div>
             </div>
 
-            {/* Zoom Controls */}
             <div className="zoom-controls no-print">
-                <button className="zoom-btn" onClick={handleZoomOut} title="Zoom out">
+                <button type="button" className="zoom-btn" onClick={handleZoomOut} title="Zoom out">
                     <ZoomOut size={16} />
                 </button>
                 <button
+                    type="button"
                     className="zoom-label"
                     onClick={handleZoomReset}
                     title="Reset zoom"
@@ -587,12 +730,11 @@ export default function App() {
                 >
                     {zoom}%
                 </button>
-                <button className="zoom-btn" onClick={handleZoomIn} title="Zoom in">
+                <button type="button" className="zoom-btn" onClick={handleZoomIn} title="Zoom in">
                     <ZoomIn size={16} />
                 </button>
             </div>
 
-            {/* Design Panel */}
             {isDesignPanelOpen && (
                 <DesignPanel
                     settings={settings}
@@ -601,13 +743,13 @@ export default function App() {
                 />
             )}
 
-            {/* Email Modal */}
             <EmailModal
                 isOpen={isEmailModalOpen}
                 onClose={() => !isSendingEmail && setIsEmailModalOpen(false)}
                 onSend={handleEmailSend}
                 isSending={isSendingEmail}
-                senderEmail={process.env.NEXT_PUBLIC_SENDER_EMAIL || ''}
+                senderEmail={senderEmailForUi}
+                initialRecipients={emailRecipientSeed.split(',').map((s) => s.trim()).filter(Boolean)}
                 invoiceSubject={(() => {
                     const cleanName = (data.senderName || '').replace(/<[^>]*>/g, '');
                     const paddedNo = String(data.invoiceNo || 1).padStart(2, '0');
@@ -615,6 +757,15 @@ export default function App() {
                 })()}
                 attachmentName={getInvoiceFilename(data.senderName, data.invoiceNo)}
                 invoiceMonth={invoiceMonthName}
+            />
+
+            <PrefillModal
+                isOpen={prefillModalOpen}
+                onClose={() => !isSavingPrefill && setPrefillModalOpen(false)}
+                workspaceLabel={workspaceLabel}
+                initialJson={prefillModalInitial}
+                onSave={savePrefillPayload}
+                isSaving={isSavingPrefill}
             />
 
             <Toast />

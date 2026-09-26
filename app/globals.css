@@ -333,6 +333,17 @@ body {
   display: block;
 }
 
+/* Empty fields show a hint while editing, but never in the PDF or print */
+.pdf-export .editable-text[data-empty="true"]::before {
+  content: none;
+}
+
+@media print {
+  .editable-text[data-empty="true"]::before {
+    content: none;
+  }
+}
+
 /* --- Floating Design Panel --- */
 .design-panel-overlay {
   position: fixed;

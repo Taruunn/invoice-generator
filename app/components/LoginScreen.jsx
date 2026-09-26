@@ -59,7 +59,7 @@ export default function LoginScreen({ onLogin }) {
             }}>
                 {/* Brand */}
                 <div style={{ marginBottom: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <img src="/ysm-logo.png" alt="YourStoreMatters" style={{ height: 32, marginBottom: 16, objectFit: 'contain' }} />
+                    <FileText size={32} color="#0f172a" style={{ marginBottom: 16 }} />
                     <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111', letterSpacing: '-0.01em', margin: 0 }}>Invoice Generator</h1>
                 </div>
                 <p style={{ fontSize: 13, color: '#9ca3af', marginBottom: 32 }}>Sign in to access your invoices</p>

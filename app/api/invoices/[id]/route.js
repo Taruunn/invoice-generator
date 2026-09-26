@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabase, supabaseErrorMessage } from '../../../../lib/supabase';
 import { resolveWorkspaceRequest } from '../../../../lib/workspace-auth';
-import { reindexVagmiSequentialInvoiceNumbers } from '../../../../lib/vagmi-invoice-index';
+import { reindexSequentialInvoiceNumbers, usesSequentialNumbers } from '../../../../lib/sequential-invoice-index';
 
 export async function GET(request, { params }) {
     const auth = resolveWorkspaceRequest(request);
@@ -125,8 +125,8 @@ export async function DELETE(request, { params }) {
         return NextResponse.json({ error: supabaseErrorMessage(error) }, { status: 500 });
     }
 
-    if (meta?.workspace === 'vagmi') {
-        const rx = await reindexVagmiSequentialInvoiceNumbers(supabase, meta.year);
+    if (meta && usesSequentialNumbers(meta.workspace)) {
+        const rx = await reindexSequentialInvoiceNumbers(supabase, meta.workspace, meta.year);
         if (!rx.ok) {
             return NextResponse.json(
                 { error: `Invoice deleted but invoice numbers could not be updated: ${rx.error}` },

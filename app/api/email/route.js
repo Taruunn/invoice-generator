@@ -15,65 +15,75 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { toEmail, subject, message, pdfBase64, fromEmail } = body || {};
+    const { toEmail, ccEmail, subject, message, pdfBase64, fromEmail, filename } = body || {};
     if (!toEmail || !subject || !pdfBase64) {
         return NextResponse.json({ error: 'Missing required fields (toEmail, subject, pdfBase64)' }, { status: 400 });
     }
 
-    const recipients = toEmail
-        .split(',')
-        .map((e) => e.trim())
-        .filter((e) => e.length > 0);
+    const splitList = (raw) =>
+        String(raw || '')
+            .split(',')
+            .map((e) => e.trim())
+            .filter((e) => e.length > 0);
+    const recipients = splitList(toEmail);
+    const ccRecipients = splitList(ccEmail);
 
-    let gmailUser;
-    let gmailPass;
+    let transportOptions;
+    let senderUser;
     let fromDisplayName;
+    let bccSelf = false;
 
-    // Same mail path for both: Gmail SMTP + App Password on each Google account (personal Gmail or Workspace).
-    // Vagmi uses her own env vars so mail sends From her address/domain like Tarun does from his.
-    if (auth.workspace === 'vagmi') {
-        gmailUser = process.env.GMAIL_USER_VAGMI;
-        gmailPass = process.env.GMAIL_APP_PASSWORD_VAGMI;
-        fromDisplayName = process.env.EMAIL_FROM_NAME_VAGMI || 'Vagmi';
+    if (auth.workspace === 'pallavi') {
+        // Hostinger mailbox (hello@tarun.codes): plain SMTP with the mailbox password.
+        // SMTP does not drop a copy in Hostinger's Sent folder, so we BCC the mailbox to keep a record.
+        senderUser = process.env.HOSTINGER_EMAIL_USER;
+        const pass = process.env.HOSTINGER_EMAIL_PASSWORD;
+        fromDisplayName = process.env.EMAIL_FROM_NAME_PALLAVI || 'Tarun Kumar';
+        bccSelf = true;
+        if (!senderUser || !pass) {
+            console.error('Hostinger SMTP credentials missing for workspace', auth.workspace);
+            return NextResponse.json(
+                {
+                    error:
+                        'Set HOSTINGER_EMAIL_USER and HOSTINGER_EMAIL_PASSWORD (the mailbox password from Hostinger hPanel → Emails).',
+                },
+                { status: 500 }
+            );
+        }
+        transportOptions = {
+            host: process.env.HOSTINGER_SMTP_HOST || 'smtp.hostinger.com',
+            port: 465,
+            secure: true,
+            auth: { user: senderUser, pass },
+        };
     } else {
-        gmailUser = process.env.GMAIL_USER;
-        gmailPass = process.env.GMAIL_APP_PASSWORD;
+        senderUser = process.env.GMAIL_USER;
+        const pass = normalizeGmailAppPassword(process.env.GMAIL_APP_PASSWORD);
         fromDisplayName = process.env.EMAIL_FROM_NAME_TARUN || 'Tarun Kumar';
-    }
-
-    gmailPass = normalizeGmailAppPassword(gmailPass);
-
-    if (!gmailUser || !gmailPass) {
-        console.error('Gmail credentials missing for workspace', auth.workspace);
-        return NextResponse.json(
-            {
-                error:
-                    auth.workspace === 'vagmi'
-                        ? 'Set GMAIL_USER_VAGMI and GMAIL_APP_PASSWORD_VAGMI for Vagmi (Google Account → Security → 2-Step Verification → App passwords). Same method as Tarun: full Gmail address + 16-char app password.'
-                        : 'Server configuration error (set GMAIL_USER and GMAIL_APP_PASSWORD for Tarun)',
-            },
-            { status: 500 }
-        );
+        if (!senderUser || !pass) {
+            console.error('Gmail credentials missing for workspace', auth.workspace);
+            return NextResponse.json(
+                { error: 'Server configuration error (set GMAIL_USER and GMAIL_APP_PASSWORD for Tarun)' },
+                { status: 500 }
+            );
+        }
+        transportOptions = { service: 'gmail', auth: { user: senderUser, pass } };
     }
 
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: gmailUser,
-                pass: gmailPass,
-            },
-        });
+        const transporter = nodemailer.createTransport(transportOptions);
 
         const info = await transporter.sendMail({
-            from: `${fromDisplayName} <${gmailUser}>`,
+            from: `${fromDisplayName} <${senderUser}>`,
             to: recipients.join(', '),
-            replyTo: fromEmail || gmailUser,
+            ...(ccRecipients.length > 0 ? { cc: ccRecipients.join(', ') } : {}),
+            ...(bccSelf ? { bcc: senderUser } : {}),
+            replyTo: fromEmail || senderUser,
             subject: subject,
             text: message || 'Please find your invoice attached.',
             attachments: [
                 {
-                    filename: 'invoice.pdf',
+                    filename: filename || 'invoice.pdf',
                     content: pdfBase64,
                     encoding: 'base64',
                 },

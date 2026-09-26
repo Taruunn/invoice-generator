@@ -14,7 +14,6 @@ import Toast, { showToast } from './Toast';
 import Template1 from './templates/Template1';
 import Template2 from './templates/Template2';
 import WorkspacePicker from './WorkspacePicker';
-import TarunWorkspaceModal from './TarunWorkspaceModal';
 import PrefillModal from './PrefillModal';
 import {
     MONTH_NAMES,
@@ -22,11 +21,21 @@ import {
     buildDefaultDataForWorkspace,
     mergeInvoicePrefill,
     resolvePrefillForEditor,
+    PALLAVI_SENDER_EMAIL,
+    PALLAVI_EMAIL_TO,
+    PALLAVI_EMAIL_CC,
 } from '../../lib/invoice-defaults';
-import { vagmiSequentialInvoiceNo } from '../../lib/vagmi-invoice-index';
+import { sequentialInvoiceNo, usesSequentialNumbers } from '../../lib/sequential-invoice-index';
 
 const SS_WORKSPACE = 'invoice_workspace';
-const SS_TARUN = 'invoice_tarun_token';
+const WORKSPACE_LABELS = { pallavi: 'Pallavi', tarun: 'Tarun' };
+const EMPTY_LIST = [];
+
+/** Hide empty-field placeholders ("Trade Name", …) while html2pdf captures the invoice. */
+function withPdfExportClass(element, promise) {
+    element.classList.add('pdf-export');
+    return promise.finally(() => element.classList.remove('pdf-export'));
+}
 
 const FONT_MAP = {
     'font-inter': '"Inter", sans-serif',
@@ -44,14 +53,12 @@ const TEMPLATES = {
 function apiCall(url, options = {}) {
     const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('auth_token') : null;
     const workspace = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SS_WORKSPACE) : null;
-    const tarunTok = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SS_TARUN) : null;
     return fetch(url, {
         ...options,
         headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
             ...(workspace ? { 'X-Workspace': workspace } : {}),
-            ...(workspace === 'tarun' && tarunTok ? { 'X-Tarun-Token': tarunTok } : {}),
             ...options.headers,
         },
     });
@@ -62,7 +69,6 @@ export default function App() {
     const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
     const [workspace, setWorkspace] = useState(null);
-    const [tarunModalOpen, setTarunModalOpen] = useState(false);
     const [masterPrefill, setMasterPrefill] = useState({});
     const [prefillModalOpen, setPrefillModalOpen] = useState(false);
     const [isSavingPrefill, setIsSavingPrefill] = useState(false);
@@ -87,7 +93,6 @@ export default function App() {
                 } else {
                     sessionStorage.removeItem('auth_token');
                     sessionStorage.removeItem(SS_WORKSPACE);
-                    sessionStorage.removeItem(SS_TARUN);
                     setAuthToken(null);
                     setWorkspace(null);
                 }
@@ -101,15 +106,7 @@ export default function App() {
     useEffect(() => {
         if (!authToken) return;
         const ws = sessionStorage.getItem(SS_WORKSPACE);
-        const tt = sessionStorage.getItem(SS_TARUN);
-        if (ws === 'tarun' && !tt) {
-            sessionStorage.removeItem(SS_WORKSPACE);
-            setWorkspace(null);
-            return;
-        }
-        if (ws === 'vagmi' || ws === 'tarun') {
-            setWorkspace(ws);
-        }
+        if (WORKSPACE_LABELS[ws]) setWorkspace(ws);
     }, [authToken]);
 
     const refreshPrefill = useCallback(async () => {
@@ -137,34 +134,19 @@ export default function App() {
     const handleLogout = () => {
         sessionStorage.removeItem('auth_token');
         sessionStorage.removeItem(SS_WORKSPACE);
-        sessionStorage.removeItem(SS_TARUN);
         setAuthToken(null);
         setWorkspace(null);
         setCurrentView('dashboard');
     };
 
-    const handleSelectVagmi = () => {
-        sessionStorage.setItem(SS_WORKSPACE, 'vagmi');
-        sessionStorage.removeItem(SS_TARUN);
-        setWorkspace('vagmi');
-        setCurrentView('dashboard');
-    };
-
-    const handleSelectTarunClick = () => {
-        setTarunModalOpen(true);
-    };
-
-    const handleTarunUnlocked = (tarunToken) => {
-        sessionStorage.setItem(SS_WORKSPACE, 'tarun');
-        sessionStorage.setItem(SS_TARUN, tarunToken);
-        setWorkspace('tarun');
-        setTarunModalOpen(false);
+    const handleSelectWorkspace = (ws) => {
+        sessionStorage.setItem(SS_WORKSPACE, ws);
+        setWorkspace(ws);
         setCurrentView('dashboard');
     };
 
     const handleSwitchWorkspace = () => {
         sessionStorage.removeItem(SS_WORKSPACE);
-        sessionStorage.removeItem(SS_TARUN);
         setWorkspace(null);
         setCurrentView('dashboard');
         setMasterPrefill({});
@@ -213,9 +195,19 @@ export default function App() {
             if (res.ok) {
                 const list = await res.json();
                 setDashboardInvoices(list);
+            } else {
+                let message = `Could not load invoices (${res.status})`;
+                try {
+                    const errBody = await res.json();
+                    if (errBody?.error) message = errBody.error;
+                } catch {
+                    /* ignore */
+                }
+                showToast(message, 'error');
             }
         } catch (err) {
-            console.error('Failed to fetch invoices');
+            console.error('Failed to fetch invoices', err);
+            showToast('Could not load invoices (network error)', 'error');
         } finally {
             setIsDashboardLoading(false);
         }
@@ -312,9 +304,13 @@ export default function App() {
         }));
     }, []);
 
+    // numberLocale (e.g. 'en-IN' → 66,666) is set per preset; without it amounts keep the 2300.00 style.
     const formatCurrency = useCallback(
-        (amount) => `${data.currency}${parseFloat(amount).toFixed(2)}`,
-        [data.currency]
+        (amount) =>
+            data.numberLocale
+                ? `${data.currency}${Number(amount).toLocaleString(data.numberLocale, { maximumFractionDigits: 2 })}`
+                : `${data.currency}${parseFloat(amount).toFixed(2)}`,
+        [data.currency, data.numberLocale]
     );
 
     useEffect(() => {
@@ -331,13 +327,13 @@ export default function App() {
             if (!workspace) return;
             const base = buildDefaultDataForWorkspace(workspace, monthNum);
             let merged = mergeInvoicePrefill(base, masterPrefill);
-            if (workspace === 'vagmi') {
+            if (usesSequentialNumbers(workspace)) {
                 const savedMonths = dashboardInvoices
                     .map((inv) => Number(inv.month))
                     .filter((m) => Number.isFinite(m) && m >= 1 && m <= 12);
                 merged = {
                     ...merged,
-                    invoiceNo: vagmiSequentialInvoiceNo(monthNum, savedMonths),
+                    invoiceNo: sequentialInvoiceNo(monthNum, savedMonths),
                 };
             }
             setSelectedMonth(monthNum);
@@ -450,10 +446,7 @@ export default function App() {
                 pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
             };
 
-            window.html2pdf()
-                .set(opt)
-                .from(element)
-                .save()
+            withPdfExportClass(element, window.html2pdf().set(opt).from(element).save())
                 .then(() => {
                     setIsGeneratingPdf(false);
                 })
@@ -494,10 +487,12 @@ export default function App() {
                     method: 'POST',
                     body: JSON.stringify({
                         toEmail: emailData.toEmail,
+                        ccEmail: emailData.ccEmail,
                         subject: emailData.subject,
                         message: emailData.message,
                         pdfBase64: base64Data,
                         fromEmail: emailData.fromEmail,
+                        filename: getInvoiceFilename(data.senderName, data.invoiceNo),
                     }),
                 });
 
@@ -505,8 +500,14 @@ export default function App() {
                     setIsEmailModalOpen(false);
                     showToast('Email sent successfully!');
                 } else {
-                    await res.text();
-                    showToast('Failed to send email', 'error');
+                    let message = 'Failed to send email';
+                    try {
+                        const errBody = await res.json();
+                        if (errBody?.error) message = `Email failed: ${errBody.error}`;
+                    } catch {
+                        /* ignore */
+                    }
+                    showToast(message, 'error');
                 }
             } catch (err) {
                 console.error('Email send failed', err);
@@ -532,10 +533,7 @@ export default function App() {
                 pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
             };
 
-            window.html2pdf()
-                .set(opt)
-                .from(element)
-                .outputPdf('datauristring')
+            withPdfExportClass(element, window.html2pdf().set(opt).from(element).outputPdf('datauristring'))
                 .then(sendRequest)
                 .catch((err) => {
                     console.error('Failed to generate PDF for email', err);
@@ -559,20 +557,20 @@ export default function App() {
         }
     };
 
-    const workspaceLabel = workspace === 'vagmi' ? 'Vagmi' : workspace === 'tarun' ? 'Tarun' : '';
+    const workspaceLabel = WORKSPACE_LABELS[workspace] || '';
     const senderEmailForUi =
-        workspace === 'vagmi'
-            ? process.env.NEXT_PUBLIC_SENDER_EMAIL_VAGMI || ''
-            : process.env.NEXT_PUBLIC_SENDER_EMAIL || '';
-    const emailRecipientSeed =
-        workspace === 'vagmi'
-            ? process.env.NEXT_PUBLIC_RECIPIENTS_VAGMI ||
-              process.env.NEXT_PUBLIC_RECIPIENTS ||
-              ''
-            : process.env.NEXT_PUBLIC_RECIPIENTS || '';
+        workspace === 'pallavi' ? PALLAVI_SENDER_EMAIL : process.env.NEXT_PUBLIC_SENDER_EMAIL || '';
+    const emailRecipients = useMemo(
+        () =>
+            workspace === 'pallavi'
+                ? PALLAVI_EMAIL_TO
+                : (process.env.NEXT_PUBLIC_RECIPIENTS || '').split(',').map((s) => s.trim()).filter(Boolean),
+        [workspace]
+    );
+    const emailCc = workspace === 'pallavi' ? PALLAVI_EMAIL_CC : EMPTY_LIST;
 
     const prefillModalInitial = useMemo(() => {
-        if (workspace !== 'vagmi' && workspace !== 'tarun') return {};
+        if (!WORKSPACE_LABELS[workspace]) return {};
         return resolvePrefillForEditor(workspace, masterPrefill);
     }, [workspace, masterPrefill]);
 
@@ -595,15 +593,9 @@ export default function App() {
         return (
             <>
                 <WorkspacePicker
-                    onSelectVagmi={handleSelectVagmi}
-                    onSelectTarun={handleSelectTarunClick}
+                    onSelectPallavi={() => handleSelectWorkspace('pallavi')}
+                    onSelectTarun={() => handleSelectWorkspace('tarun')}
                     onLogout={handleLogout}
-                />
-                <TarunWorkspaceModal
-                    isOpen={tarunModalOpen}
-                    masterToken={authToken}
-                    onClose={() => setTarunModalOpen(false)}
-                    onSuccess={handleTarunUnlocked}
                 />
                 <Toast />
             </>
@@ -749,7 +741,8 @@ export default function App() {
                 onSend={handleEmailSend}
                 isSending={isSendingEmail}
                 senderEmail={senderEmailForUi}
-                initialRecipients={emailRecipientSeed.split(',').map((s) => s.trim()).filter(Boolean)}
+                initialRecipients={emailRecipients}
+                initialCc={emailCc}
                 invoiceSubject={(() => {
                     const cleanName = (data.senderName || '').replace(/<[^>]*>/g, '');
                     const paddedNo = String(data.invoiceNo || 1).padStart(2, '0');

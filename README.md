@@ -143,7 +143,7 @@ Open [http://localhost:3000](http://localhost:3000)
 │           ├── Template1.jsx   # Classic Minimalist
 │           └── Template2.jsx   # Typewriter Monospace
 ├── public/
-│   └── ysm-logo.png           # Logo
+│   └── pallavi-logo.svg       # Pallavi client logo (Bill To)
 ├── .env.example                # Environment template
 └── package.json
 ```

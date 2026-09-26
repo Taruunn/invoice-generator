@@ -21,22 +21,29 @@ export default function Template1({ data, settings, formatCurrency, onUpdate, on
                         tag="h1"
                         style={{ fontSize: 26, fontWeight: 800, color: '#111', marginBottom: 4, letterSpacing: '-0.02em' }}
                     />
-                    <EditableText
-                        value={data.tradeName}
-                        onChange={(v) => onUpdate('tradeName', v)}
-                        placeholder="Trade Name"
-                        style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}
-                    />
+                    {data.tradeName != null && (
+                        <EditableText
+                            value={data.tradeName}
+                            onChange={(v) => onUpdate('tradeName', v)}
+                            placeholder="Trade Name"
+                            style={{ fontSize: 13, color: '#6b7280' }}
+                        />
+                    )}
                     <EditableText
                         value={data.senderAddress}
                         onChange={(v) => onUpdate('senderAddress', v)}
                         placeholder="Address"
-                        style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6, marginBottom: 12 }}
+                        style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6, marginTop: 16, marginBottom: 12 }}
                     />
                     <div style={{ fontSize: 12, color: '#6b7280', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        <EditableText value={data.senderGst} onChange={(v) => onUpdate('senderGst', v)} placeholder="GST" />
+                        {data.senderGst != null && (
+                            <EditableText value={data.senderGst} onChange={(v) => onUpdate('senderGst', v)} placeholder="GST" />
+                        )}
                         <EditableText value={data.senderPan} onChange={(v) => onUpdate('senderPan', v)} placeholder="PAN" />
                         <EditableText value={data.senderEmail} onChange={(v) => onUpdate('senderEmail', v)} placeholder="Email" />
+                        {data.senderWebsite != null && (
+                            <EditableText value={data.senderWebsite} onChange={(v) => onUpdate('senderWebsite', v)} placeholder="Website" />
+                        )}
                     </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -70,11 +77,16 @@ export default function Template1({ data, settings, formatCurrency, onUpdate, on
                     onChange={(v) => onUpdate('billToLabel', v)}
                     style={{ fontSize: 11, fontWeight: 800, color: '#111', borderBottom: '2px solid #111', display: 'inline-block', paddingBottom: 4, marginBottom: 10, letterSpacing: '0.04em' }}
                 />
-                <EditableText
-                    value={data.receiverName}
-                    onChange={(v) => onUpdate('receiverName', v)}
-                    style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 4 }}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+                    {data.receiverLogo && (
+                        <img src={data.receiverLogo} alt="" style={{ display: 'block', height: 40 }} />
+                    )}
+                    <EditableText
+                        value={data.receiverName}
+                        onChange={(v) => onUpdate('receiverName', v)}
+                        style={{ fontSize: 16, fontWeight: 700, color: '#111' }}
+                    />
+                </div>
                 <EditableText
                     value={data.receiverAddress}
                     onChange={(v) => onUpdate('receiverAddress', v)}

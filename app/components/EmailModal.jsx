@@ -2,60 +2,35 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Paperclip } from 'lucide-react';
 
-/**
- * EmailModal — Gmail-style compose with:
- *  - From (sender email, read-only from env)
- *  - To with email chip/pill input
- *  - Dynamic subject from invoice data
- *  - Message body
- *  - Attachment indicator
- */
-export default function EmailModal({
-    isOpen, onClose, onSend, isSending,
-    senderEmail, invoiceSubject, attachmentName, invoiceMonth,
-    initialRecipients,
-}) {
-    const defaultChipList = Array.isArray(initialRecipients) && initialRecipients.length > 0
-        ? initialRecipients
-        : (process.env.NEXT_PUBLIC_RECIPIENTS || '').split(',').map((s) => s.trim()).filter(Boolean);
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-    const [recipients, setRecipients] = useState(defaultChipList);
+const getInitial = (email) => email.charAt(0).toUpperCase();
+
+// Deterministic avatar color from the email string
+const getAvatarColor = (email) => {
+    let hash = 0;
+    for (let i = 0; i < email.length; i++) {
+        hash = email.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const colors = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#8e24aa', '#00897b', '#e65100', '#1565c0', '#6d4c41'];
+    return colors[Math.abs(hash) % colors.length];
+};
+
+/** Gmail-style chip input used for both To and Cc. Pending typed text is flushed on blur. */
+function RecipientField({ label, emails, onChange, placeholder }) {
     const [inputValue, setInputValue] = useState('');
-    const [fromEmail, setFromEmail] = useState('');
-    const [subject, setSubject] = useState('');
-    const [message, setMessage] = useState('');
     const inputRef = useRef(null);
 
-    // Sync dynamic subject when modal opens
-    useEffect(() => {
-        if (isOpen) {
-            const chip =
-                Array.isArray(initialRecipients) && initialRecipients.length > 0
-                    ? initialRecipients
-                    : (process.env.NEXT_PUBLIC_RECIPIENTS || '').split(',').map((s) => s.trim()).filter(Boolean);
-            setRecipients(chip);
-            setSubject(invoiceSubject || '');
-            setFromEmail(senderEmail || process.env.NEXT_PUBLIC_SENDER_EMAIL || '');
-            setMessage(`Hi there,\n\nPlease find ${invoiceMonth || 'this month\'s'} invoice attached.\n\nThank you`);
-        }
-    }, [isOpen, invoiceSubject, senderEmail, invoiceMonth, initialRecipients]);
-
-    if (!isOpen) return null;
-
-    // --- Email validation ---
-    const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-    // --- Add email chip ---
     const addEmail = (raw) => {
         const email = raw.trim().toLowerCase();
-        if (email && isValidEmail(email) && !recipients.includes(email)) {
-            setRecipients((prev) => [...prev, email]);
+        if (email && isValidEmail(email) && !emails.includes(email)) {
+            onChange([...emails, email]);
         }
         setInputValue('');
     };
 
     const removeEmail = (email) => {
-        setRecipients((prev) => prev.filter((e) => e !== email));
+        onChange(emails.filter((e) => e !== email));
     };
 
     const handleKeyDown = (e) => {
@@ -64,51 +39,154 @@ export default function EmailModal({
             if (inputValue.trim()) addEmail(inputValue);
         }
         // Backspace when input is empty removes last chip
-        if (e.key === 'Backspace' && !inputValue && recipients.length > 0) {
-            removeEmail(recipients[recipients.length - 1]);
+        if (e.key === 'Backspace' && !inputValue && emails.length > 0) {
+            removeEmail(emails[emails.length - 1]);
         }
     };
 
     const handlePaste = (e) => {
         e.preventDefault();
-        const pasted = e.clipboardData.getData('text');
         // Split by comma, semicolon, space, or newline
-        const emails = pasted.split(/[,;\s\n]+/);
-        emails.forEach((email) => {
-            if (email.trim()) addEmail(email);
+        const pasted = e.clipboardData.getData('text').split(/[,;\s\n]+/);
+        const next = [...emails];
+        pasted.forEach((raw) => {
+            const email = raw.trim().toLowerCase();
+            if (email && isValidEmail(email) && !next.includes(email)) next.push(email);
         });
+        onChange(next);
     };
 
     const handleBlur = () => {
         if (inputValue.trim()) addEmail(inputValue);
     };
 
-    // --- Get initial/avatar for email chip ---
-    const getInitial = (email) => {
-        return email.charAt(0).toUpperCase();
-    };
+    return (
+        <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+            padding: '12px 0', borderBottom: '1px solid #f3f4f6',
+            fontSize: 13,
+        }}>
+            <span style={{ color: '#9ca3af', fontWeight: 500, minWidth: 40, paddingTop: 6 }}>{label}</span>
+            <div
+                style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    gap: 6,
+                    minHeight: 36,
+                    cursor: 'text',
+                }}
+                onClick={() => inputRef.current?.focus()}
+            >
+                {emails.map((email) => (
+                    <div
+                        key={email}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            background: '#f3f4f6',
+                            borderRadius: 20,
+                            padding: '4px 10px 4px 4px',
+                            fontSize: 13,
+                            color: '#1f2937',
+                            border: '1px solid #e5e7eb',
+                            transition: 'all 0.15s',
+                            maxWidth: '100%',
+                        }}
+                    >
+                        {/* Avatar */}
+                        <div style={{
+                            width: 24, height: 24, borderRadius: '50%',
+                            background: getAvatarColor(email),
+                            color: '#fff', fontWeight: 700, fontSize: 11,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            flexShrink: 0,
+                        }}>
+                            {getInitial(email)}
+                        </div>
+                        {/* Email text */}
+                        <span style={{
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                            {email}
+                        </span>
+                        {/* Remove */}
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); removeEmail(email); }}
+                            style={{
+                                border: 'none', background: 'transparent',
+                                cursor: 'pointer', padding: 0, display: 'flex',
+                                color: '#9ca3af', flexShrink: 0,
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                ))}
+                {/* Inline input */}
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                    onBlur={handleBlur}
+                    placeholder={emails.length === 0 ? placeholder : ''}
+                    style={{
+                        border: 'none', outline: 'none', background: 'transparent',
+                        fontSize: 13, color: '#374151', flex: 1, minWidth: 150,
+                        padding: '4px 0', fontFamily: 'inherit',
+                    }}
+                />
+            </div>
+        </div>
+    );
+}
 
-    const getAvatarColor = (email) => {
-        // Generate a deterministic color from email string
-        let hash = 0;
-        for (let i = 0; i < email.length; i++) {
-            hash = email.charCodeAt(i) + ((hash << 5) - hash);
+/**
+ * EmailModal — Gmail-style compose with:
+ *  - From (sender email, read-only from env)
+ *  - To and Cc with email chip/pill input
+ *  - Dynamic subject from invoice data
+ *  - Message body
+ *  - Attachment indicator
+ */
+export default function EmailModal({
+    isOpen, onClose, onSend, isSending,
+    senderEmail, invoiceSubject, attachmentName, invoiceMonth,
+    initialRecipients, initialCc,
+}) {
+    const [recipients, setRecipients] = useState([]);
+    const [ccRecipients, setCcRecipients] = useState([]);
+    const [fromEmail, setFromEmail] = useState('');
+    const [subject, setSubject] = useState('');
+    const [message, setMessage] = useState('');
+
+    // Reset fields each time the modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setRecipients(Array.isArray(initialRecipients) ? initialRecipients : []);
+            setCcRecipients(Array.isArray(initialCc) ? initialCc : []);
+            setSubject(invoiceSubject || '');
+            setFromEmail(senderEmail || process.env.NEXT_PUBLIC_SENDER_EMAIL || '');
+            setMessage(`Hi there,\n\nPlease find ${invoiceMonth || 'this month\'s'} invoice attached.\n\nThank you`);
         }
-        const colors = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#8e24aa', '#00897b', '#e65100', '#1565c0', '#6d4c41'];
-        return colors[Math.abs(hash) % colors.length];
-    };
+    }, [isOpen, invoiceSubject, senderEmail, invoiceMonth, initialRecipients, initialCc]);
+
+    if (!isOpen) return null;
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        // Add any pending input
-        if (inputValue.trim()) addEmail(inputValue);
-        const allRecipients = [...recipients];
-        if (inputValue.trim() && isValidEmail(inputValue.trim())) {
-            allRecipients.push(inputValue.trim().toLowerCase());
-        }
-        if (allRecipients.length > 0 && subject.trim()) {
+        if (recipients.length > 0 && subject.trim()) {
             onSend({
-                toEmail: allRecipients.join(', '),
+                toEmail: recipients.join(', '),
+                ccEmail: ccRecipients.join(', '),
                 subject,
                 message,
                 fromEmail,
@@ -149,92 +227,18 @@ export default function EmailModal({
                             />
                         </div>
 
-                        {/* To — chip input */}
-                        <div style={{
-                            display: 'flex', alignItems: 'flex-start', gap: 12,
-                            padding: '12px 0', borderBottom: '1px solid #f3f4f6',
-                            fontSize: 13,
-                        }}>
-                            <span style={{ color: '#9ca3af', fontWeight: 500, minWidth: 40, paddingTop: 6 }}>To</span>
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: 'flex',
-                                    flexWrap: 'wrap',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    minHeight: 36,
-                                    cursor: 'text',
-                                }}
-                                onClick={() => inputRef.current?.focus()}
-                            >
-                                {recipients.map((email) => (
-                                    <div
-                                        key={email}
-                                        style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                            background: '#f3f4f6',
-                                            borderRadius: 20,
-                                            padding: '4px 10px 4px 4px',
-                                            fontSize: 13,
-                                            color: '#1f2937',
-                                            border: '1px solid #e5e7eb',
-                                            transition: 'all 0.15s',
-                                            maxWidth: '100%',
-                                        }}
-                                    >
-                                        {/* Avatar */}
-                                        <div style={{
-                                            width: 24, height: 24, borderRadius: '50%',
-                                            background: getAvatarColor(email),
-                                            color: '#fff', fontWeight: 700, fontSize: 11,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            flexShrink: 0,
-                                        }}>
-                                            {getInitial(email)}
-                                        </div>
-                                        {/* Email text */}
-                                        <span style={{
-                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                        }}>
-                                            {email}
-                                        </span>
-                                        {/* Remove */}
-                                        <button
-                                            type="button"
-                                            onClick={(e) => { e.stopPropagation(); removeEmail(email); }}
-                                            style={{
-                                                border: 'none', background: 'transparent',
-                                                cursor: 'pointer', padding: 0, display: 'flex',
-                                                color: '#9ca3af', flexShrink: 0,
-                                            }}
-                                            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                                            onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                    </div>
-                                ))}
-                                {/* Inline input */}
-                                <input
-                                    ref={inputRef}
-                                    type="text"
-                                    value={inputValue}
-                                    onChange={(e) => setInputValue(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    onPaste={handlePaste}
-                                    onBlur={handleBlur}
-                                    placeholder={recipients.length === 0 ? 'Type email and press Enter' : ''}
-                                    style={{
-                                        border: 'none', outline: 'none', background: 'transparent',
-                                        fontSize: 13, color: '#374151', flex: 1, minWidth: 150,
-                                        padding: '4px 0', fontFamily: 'inherit',
-                                    }}
-                                />
-                            </div>
-                        </div>
+                        <RecipientField
+                            label="To"
+                            emails={recipients}
+                            onChange={setRecipients}
+                            placeholder="Type email and press Enter"
+                        />
+                        <RecipientField
+                            label="Cc"
+                            emails={ccRecipients}
+                            onChange={setCcRecipients}
+                            placeholder="Optional"
+                        />
 
                         {/* Subject */}
                         <div style={{

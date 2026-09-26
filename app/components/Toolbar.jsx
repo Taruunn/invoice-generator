@@ -3,7 +3,7 @@ import React from 'react';
 import {
     Bold, Italic, Underline,
     Printer, Download, Loader2, Paintbrush,
-    Save, LogOut, Check, Mail, ArrowLeft, ArrowLeftRight,
+    Save, LogOut, Check, Mail, ArrowLeft, ArrowLeftRight, FileText,
 } from 'lucide-react';
 
 /**
@@ -45,7 +45,7 @@ export default function Toolbar({
 
                 {/* Brand + month indicator */}
                 <div className="toolbar-brand" style={{ gap: 10 }}>
-                    <img src="/ysm-logo.png" alt="YSM" style={{ height: 18, objectFit: 'contain' }} />
+                    <FileText size={18} color="#0f172a" />
                     {invoiceMonth && (
                         <>
                             <div style={{ width: 1, height: 16, background: '#e5e7eb' }} />

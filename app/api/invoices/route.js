@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabase, supabaseErrorMessage } from '../../../lib/supabase';
 import { resolveWorkspaceRequest } from '../../../lib/workspace-auth';
-import { reindexVagmiSequentialInvoiceNumbers } from '../../../lib/vagmi-invoice-index';
+import { reindexSequentialInvoiceNumbers, usesSequentialNumbers } from '../../../lib/sequential-invoice-index';
 
 export async function GET(request) {
     const auth = resolveWorkspaceRequest(request);
@@ -66,8 +66,8 @@ export async function POST(request) {
     const workspace = auth.workspace;
 
     async function respondSaved(id, message) {
-        if (workspace === 'vagmi') {
-            const rx = await reindexVagmiSequentialInvoiceNumbers(supabase, year);
+        if (usesSequentialNumbers(workspace)) {
+            const rx = await reindexSequentialInvoiceNumbers(supabase, workspace, year);
             if (!rx.ok) {
                 return NextResponse.json({ error: rx.error }, { status: 500 });
             }

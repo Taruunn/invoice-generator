@@ -2,9 +2,9 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Building2, Lock, LogOut } from 'lucide-react';
+import { FileText, User, LogOut } from 'lucide-react';
 
-export default function WorkspacePicker({ onSelectVagmi, onSelectTarun, onLogout }) {
+export default function WorkspacePicker({ onSelectPallavi, onSelectTarun, onLogout }) {
     return (
         <div style={{
             minHeight: '100vh',
@@ -22,10 +22,9 @@ export default function WorkspacePicker({ onSelectVagmi, onSelectTarun, onLogout
                 justifyContent: 'space-between',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <img src="/ysm-logo.png" alt="YSM" style={{ height: 28, objectFit: 'contain' }} />
+                    <FileText size={26} color="#0f172a" />
                     <div>
                         <h1 style={{ fontSize: 17, fontWeight: 800, color: '#111', margin: 0 }}>Choose workspace</h1>
-                        <p style={{ fontSize: 12, color: '#999', margin: 0 }}>Vagmi opens directly · Tarun requires an extra sign-in</p>
                     </div>
                 </div>
                 <button
@@ -64,7 +63,7 @@ export default function WorkspacePicker({ onSelectVagmi, onSelectTarun, onLogout
                     type="button"
                     whileHover={{ y: -4, scale: 1.02 }}
                     transition={{ type: 'spring', stiffness: 320 }}
-                    onClick={onSelectVagmi}
+                    onClick={onSelectPallavi}
                     style={{
                         width: 280,
                         textAlign: 'left',
@@ -81,17 +80,17 @@ export default function WorkspacePicker({ onSelectVagmi, onSelectTarun, onLogout
                         width: 44,
                         height: 44,
                         borderRadius: 14,
-                        background: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)',
+                        background: '#faf6ee',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginBottom: 16,
                     }}>
-                        <Building2 size={22} color="#4f46e5" />
+                        <img src="/pallavi-logo.svg" alt="" style={{ height: 30 }} />
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>Vagmi</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>Pallavi Nopany</div>
                     <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-                        Same invoice editor and templates. Uses Vagmi email settings and prefills when configured.
+                        Client invoices in INR, numbered 1, 2, 3… Sent from hello@tarun.codes.
                     </div>
                 </motion.button>
 
@@ -122,11 +121,11 @@ export default function WorkspacePicker({ onSelectVagmi, onSelectTarun, onLogout
                         justifyContent: 'center',
                         marginBottom: 16,
                     }}>
-                        <Lock size={20} color="#fff" />
+                        <User size={20} color="#fff" />
                     </div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>Tarun</div>
                     <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-                        Your existing invoices and defaults. You will be asked for the Tarun workspace password next.
+                        Your existing monthly invoices and defaults.
                     </div>
                 </motion.button>
             </div>

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Plus, CheckCircle2, CalendarCheck, Eye, SlidersHorizontal, ArrowLeftRight, Trash2 } from 'lucide-react';
+import { Plus, CheckCircle2, CalendarCheck, Eye, SlidersHorizontal, ArrowLeftRight, Trash2, FileText } from 'lucide-react';
 
 const MONTHS = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -55,7 +55,7 @@ export default function Dashboard({
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         padding: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                     }}>
-                        <img src="/ysm-logo.png" alt="YSM" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        <FileText size={20} color="#0f172a" />
                     </div>
                     <div>
                         <h1 style={{ fontSize: 18, fontWeight: 800, color: '#111', margin: 0, letterSpacing: -0.5 }}>Invoice Timeline</h1>
@@ -297,14 +297,6 @@ export default function Dashboard({
                         })}
                     </div>
                 )}
-            </div>
-
-            {/* Footer */}
-            <div style={{
-                textAlign: 'center', padding: '12px 0',
-                fontSize: 11, color: '#ccc', fontWeight: 500, flexShrink: 0,
-            }}>
-                Powered by YSM
             </div>
         </div>
     );

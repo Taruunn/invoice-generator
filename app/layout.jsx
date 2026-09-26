@@ -1,12 +1,9 @@
 import './globals.css';
 
 export const metadata = {
-    title: 'YourStoreMatters - Invoice Generator',
+    title: 'Invoice Generator',
     description:
         'Generate beautiful, professional invoices directly in your browser. Edit directly on the invoice, switch templates, and download as PDF.',
-    icons: {
-        icon: '/ysm-logo.png',
-    },
 };
 
 export default function RootLayout({ children }) {

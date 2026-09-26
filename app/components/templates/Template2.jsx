@@ -76,7 +76,12 @@ export default function Template2({ data, settings, formatCurrency, onUpdate, on
                     <div style={{ fontSize: 11, textTransform: 'uppercase', color: '#666', marginBottom: 2 }}>
                         <EditableText value={data.billToLabel} onChange={(v) => onUpdate('billToLabel', v)} tag="span" style={{ fontFamily: mono }} />
                     </div>
-                    <EditableText value={data.receiverName} onChange={(v) => onUpdate('receiverName', v)} style={{ fontWeight: 700, fontFamily: mono, fontSize: 13 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                        {data.receiverLogo && (
+                            <img src={data.receiverLogo} alt="" style={{ display: 'block', height: 32 }} />
+                        )}
+                        <EditableText value={data.receiverName} onChange={(v) => onUpdate('receiverName', v)} style={{ fontWeight: 700, fontFamily: mono, fontSize: 13 }} />
+                    </div>
                     <EditableText value={data.receiverAddress} onChange={(v) => onUpdate('receiverAddress', v)} style={{ fontSize: 11, fontFamily: mono, color: '#444' }} />
                 </div>
             </div>
@@ -84,12 +89,19 @@ export default function Template2({ data, settings, formatCurrency, onUpdate, on
             {/* Sender Details (small, top-right style) */}
             <div style={{ marginBottom: 32, fontSize: 11, color: '#555', lineHeight: 1.8 }}>
                 <EditableText value={data.senderName} onChange={(v) => onUpdate('senderName', v)} style={{ fontWeight: 700, fontFamily: mono, fontSize: 13, color: '#111', marginBottom: 4 }} />
-                <EditableText value={data.tradeName} onChange={(v) => onUpdate('tradeName', v)} style={{ fontFamily: mono, marginBottom: 4 }} />
+                {data.tradeName != null && (
+                    <EditableText value={data.tradeName} onChange={(v) => onUpdate('tradeName', v)} style={{ fontFamily: mono, marginBottom: 4 }} />
+                )}
                 <EditableText value={data.senderAddress} onChange={(v) => onUpdate('senderAddress', v)} style={{ fontFamily: mono, marginBottom: 4 }} />
                 <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 11 }}>
-                    <EditableText value={data.senderGst} onChange={(v) => onUpdate('senderGst', v)} tag="span" style={{ fontFamily: mono }} />
+                    {data.senderGst != null && (
+                        <EditableText value={data.senderGst} onChange={(v) => onUpdate('senderGst', v)} tag="span" style={{ fontFamily: mono }} />
+                    )}
                     <EditableText value={data.senderPan} onChange={(v) => onUpdate('senderPan', v)} tag="span" style={{ fontFamily: mono }} />
                     <EditableText value={data.senderEmail} onChange={(v) => onUpdate('senderEmail', v)} tag="span" style={{ fontFamily: mono }} />
+                    {data.senderWebsite != null && (
+                        <EditableText value={data.senderWebsite} onChange={(v) => onUpdate('senderWebsite', v)} tag="span" style={{ fontFamily: mono }} />
+                    )}
                 </div>
             </div>
 
